@@ -1,0 +1,29 @@
+{
+  "name": "alc-desktop",
+  "version": "1.0.0",
+  "description": "ALC Desktop — Electron wrapper for macOS",
+  "main": "main.js",
+  "scripts": {
+    "start": "ELECTRON_RUN_AS_NODE= electron .",
+    "build": "electron-builder --mac"
+  },
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "build": {
+    "appId": "com.alc.desktop",
+    "productName": "ALC Desktop",
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.developer-tools"
+    },
+    "files": [
+      "main.js",
+      "preload.js"
+    ]
+  },
+  "devDependencies": {
+    "electron": "^41.0.2",
+    "electron-builder": "^26.8.1"
+  }
+}
