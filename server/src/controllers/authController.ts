@@ -2,11 +2,38 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
-import { User, Session, Role } from '../models';
+import { User, Session } from '../models';
 import { AuthRequest } from '../middleware/auth';
+
+export const register = async (req: Request, res: Response): Promise<void> => {
+  const { username, password, role_id } = req.body;
+
+  if (!username || !password) {
+    res.status(400).json({ error: 'Имя пользователя и пароль обязательны' });
+    return;
+  }
+
+  const existingUser = await User.findOne({ username });
+  if (existingUser) {
+    res.status(409).json({ error: 'Пользователь уже существует' });
+    return;
+  }
+
+  const password_hash = await bcrypt.hash(password, 10);
+
+  const user = await User.create({
+    username,
+    password_hash,
+    role_id,
+    is_active: true
+  });
+
+  res.status(201).json({ id: user._id, username: user.username });
+};
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   const { username, password } = req.body;
+
   if (!username || !password) {
     res.status(400).json({ error: 'Имя пользователя и пароль обязательны' });
     return;
@@ -31,7 +58,10 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
   const role = user.role_id as any;
   const token = jwt.sign(
-    { id: user._id, username: user.username, role: role.name },
+    { 
+      user_id: user._id, 
+      role: role ? role.name : undefined 
+    },
     config.jwtSecret,
     { expiresIn: config.jwtExpiresIn as any }
   );
@@ -44,13 +74,8 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   });
 
   res.json({
-    token,
-    user: {
-      id: user._id,
-      username: user.username,
-      role: role.name,
-      permissions: role.permissions,
-    },
+    access_token: token,
+    token_type: "bearer"
   });
 };
 
