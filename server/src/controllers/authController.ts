@@ -172,3 +172,51 @@ export const logout = async (req: AuthRequest, res: Response): Promise<void> => 
   logger.info(`User logged out: ${req.user?.username}`, { action: 'logout', userId: req.user?.id });
   res.json({ message: 'Выход выполнен' });
 };
+
+// 6.2 — list active refresh sessions of the calling user.
+// Admin can pass ?user_id=... to inspect another user's sessions.
+// We never return the refresh token itself, only metadata + hash prefix.
+export const listSessions = async (req: AuthRequest, res: Response): Promise<void> => {
+  const targetUserId = (req.query.user_id as string) || req.user!.id;
+  if (targetUserId !== req.user!.id && req.user!.role !== 'admin') {
+    res.status(403).json({ error: 'Только admin может смотреть чужие сессии' });
+    return;
+  }
+
+  const sessions = await RefreshToken.find({
+    user_id: targetUserId,
+    revoked: false,
+    expires_at: { $gt: new Date() },
+  }).sort({ created_at: -1 }).lean();
+
+  res.json({
+    count: sessions.length,
+    sessions: sessions.map(s => ({
+      id: s._id,
+      created_at: s.created_at,
+      expires_at: s.expires_at,
+      token_hash_prefix: s.token_hash.slice(0, 12),
+    })),
+  });
+};
+
+// Revoke a specific refresh token (a single device logout).
+export const revokeSession = async (req: AuthRequest, res: Response): Promise<void> => {
+  const session = await RefreshToken.findById(req.params.id);
+  if (!session) { res.status(404).json({ error: 'Сессия не найдена' }); return; }
+
+  // 6.1.2 — owner check via token, not via body
+  if (session.user_id.toString() !== req.user!.id && req.user!.role !== 'admin') {
+    res.status(403).json({ error: 'Нет доступа к этой сессии' });
+    return;
+  }
+
+  session.revoked = true;
+  await session.save();
+  logger.info(`Refresh session revoked: ${session._id}`, {
+    action: 'session_revoked',
+    sessionId: session._id.toString(),
+    userId: req.user!.id,
+  });
+  res.json({ revoked: true });
+};
