@@ -1,11 +1,22 @@
-import { Request, Response } from 'express';
-import { Alert } from '../models';
+import { Response } from 'express';
+import { Alert, TechNode, ProductionSite, AssemblyLine } from '../models';
+import { AuthRequest } from '../middleware/auth';
 
-export const getAlerts = async (req: Request, res: Response): Promise<void> => {
+export const getAlerts = async (req: AuthRequest, res: Response): Promise<void> => {
   const filter: any = {};
   if (req.query.node_id) filter.node_id = req.query.node_id;
   if (req.query.status) filter.status = req.query.status;
   if (req.query.severity) filter.severity = req.query.severity;
+
+  // Non-admin users only see alerts for nodes they own
+  if (req.user!.role !== 'admin') {
+    const ownedSites = await ProductionSite.find({ created_by: req.user!.id }).select('_id');
+    const ownedLines = await AssemblyLine.find({ site_id: { $in: ownedSites.map(s => s._id) } }).select('_id');
+    const ownedNodes = await TechNode.find({ line_id: { $in: ownedLines.map(l => l._id) } }).select('_id');
+    filter.node_id = filter.node_id
+      ? filter.node_id
+      : { $in: ownedNodes.map(n => n._id) };
+  }
 
   const alerts = await Alert.find(filter)
     .populate('node_id', 'name type status')
@@ -14,13 +25,13 @@ export const getAlerts = async (req: Request, res: Response): Promise<void> => {
   res.json(alerts);
 };
 
-export const getAlertById = async (req: Request, res: Response): Promise<void> => {
+export const getAlertById = async (req: AuthRequest, res: Response): Promise<void> => {
   const alert = await Alert.findById(req.params.id).populate('node_id', 'name type status');
   if (!alert) { res.status(404).json({ error: 'Аларм не найден' }); return; }
   res.json(alert);
 };
 
-export const acknowledgeAlert = async (req: Request, res: Response): Promise<void> => {
+export const acknowledgeAlert = async (req: AuthRequest, res: Response): Promise<void> => {
   const alert = await Alert.findByIdAndUpdate(
     req.params.id,
     { status: 'acknowledged' },
@@ -30,7 +41,7 @@ export const acknowledgeAlert = async (req: Request, res: Response): Promise<voi
   res.json(alert);
 };
 
-export const resolveAlert = async (req: Request, res: Response): Promise<void> => {
+export const resolveAlert = async (req: AuthRequest, res: Response): Promise<void> => {
   const alert = await Alert.findByIdAndUpdate(
     req.params.id,
     { status: 'resolved', resolved_at: new Date() },

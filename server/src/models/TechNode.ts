@@ -15,6 +15,7 @@ export interface ITechNode extends Document {
   type: string;
   status: string;
   ip_address: string;
+  created_by: Types.ObjectId;
   created_at: Date;
   parameters: IParameter[];
 }
@@ -34,6 +35,7 @@ const TechNodeSchema = new Schema<ITechNode>({
   type: { type: String, required: true },
   status: { type: String, enum: ['online', 'offline', 'warning', 'critical'], default: 'online' },
   ip_address: { type: String, required: true },
+  created_by: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   created_at: { type: Date, default: Date.now },
   parameters: [ParameterSchema],
 });

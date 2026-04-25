@@ -5,20 +5,21 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useSelector } from 'react-redux';
 import { RootState } from '../store';
-
 import { LoginScreen } from '../screens/LoginScreen';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { NodeDetailScreen } from '../screens/NodeDetailScreen';
 import { AlertsScreen } from '../screens/AlertsScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
-import { UsersScreen } from '../screens/UsersScreen';
+import { ManagementScreen } from '../screens/ManagementScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
+const isWeb = Platform.OS === 'web';
+
+// Mobile tabs: operator — monitoring, alerts, commands, profile
+// Web tabs: engineer — monitoring, alerts, management (CRUD), profile
 const MainTabs = () => {
-  const { user } = useSelector((state: RootState) => state.auth);
-  const isAdmin = user?.role === 'admin';
   const insets = useSafeAreaInsets();
   const bottomPadding = Platform.OS === 'android' ? Math.max(insets.bottom, 16) : insets.bottom;
 
@@ -53,11 +54,11 @@ const MainTabs = () => {
         component={AlertsScreen}
         options={{ title: 'Алармы' }}
       />
-      {isAdmin && (
+      {isWeb && (
         <Tab.Screen
-          name="Users"
-          component={UsersScreen}
-          options={{ title: 'Пользователи' }}
+          name="Management"
+          component={ManagementScreen}
+          options={{ title: 'Управление' }}
         />
       )}
       <Tab.Screen

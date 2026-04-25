@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
 import { User } from '../models';
+import logger from '../logger';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -22,7 +23,8 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, config.jwtSecret) as any;
-    const user = await User.findById(decoded.id).populate('role_id');
+    const userId = decoded.user_id || decoded.id;
+    const user = await User.findById(userId).populate('role_id');
     if (!user || !user.is_active) {
       res.status(401).json({ error: 'Пользователь не найден или деактивирован' });
       return;
@@ -36,6 +38,7 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
     };
     next();
   } catch {
+    logger.warn('Invalid token attempt', { action: 'auth_failed', ip: req.ip });
     res.status(401).json({ error: 'Недействительный токен' });
   }
 };
@@ -43,6 +46,12 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 export const authorize = (...roles: string[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction): void => {
     if (!req.user || !roles.includes(req.user.role)) {
+      logger.warn(`Access denied for ${req.user?.username || 'unknown'}: role ${req.user?.role} not in [${roles.join(', ')}]`, {
+        action: 'access_denied',
+        userId: req.user?.id,
+        requiredRoles: roles,
+        userRole: req.user?.role,
+      });
       res.status(403).json({ error: 'Недостаточно прав' });
       return;
     }

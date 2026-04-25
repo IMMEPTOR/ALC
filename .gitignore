@@ -7,3 +7,5 @@ ios/
 *.apk
 *.tgz
 .DS_Store
+server/logs/
+*.log

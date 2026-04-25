@@ -1,5 +1,6 @@
 import { TechNode, TelemetryRecord, Alert } from '../models';
 import { emitTelemetryUpdate, emitAlert, emitNodeStatus } from '../socket';
+import { publish } from '../events/eventBus';
 
 // Store last values for smooth drift simulation
 const lastValues: Map<string, number> = new Map();
@@ -81,15 +82,25 @@ async function processTelemetry(nodeId: string, param: any, value: number) {
 
     emitAlert(alert);
 
+    // Publish domain event — read model gets updated asynchronously
+    publish('AlertCreated', alert._id.toString(), {
+      alertId: alert._id.toString(),
+      nodeId: nodeId,
+      severity,
+      message: alert.message,
+    }).catch(() => {});
+
     // Update node status
     const node = await TechNode.findById(nodeId);
     if (node) {
       if (severity === 'critical' && node.status !== 'critical') {
         await TechNode.findByIdAndUpdate(nodeId, { status: 'critical' });
         emitNodeStatus(nodeId, 'critical');
+        publish('NodeStatusChanged', nodeId, { nodeId, oldStatus: node.status, newStatus: 'critical' }).catch(() => {});
       } else if (severity === 'warning' && node.status === 'online') {
         await TechNode.findByIdAndUpdate(nodeId, { status: 'warning' });
         emitNodeStatus(nodeId, 'warning');
+        publish('NodeStatusChanged', nodeId, { nodeId, oldStatus: 'online', newStatus: 'warning' }).catch(() => {});
       }
     }
   }

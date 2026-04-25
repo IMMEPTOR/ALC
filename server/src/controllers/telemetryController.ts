@@ -1,7 +1,8 @@
-import { Request, Response } from 'express';
-import { TelemetryRecord, TechNode, Alert } from '../models';
+import { Response } from 'express';
+import { TelemetryRecord, TechNode, Alert, ProductionSite, AssemblyLine } from '../models';
+import { AuthRequest } from '../middleware/auth';
 
-export const getTelemetry = async (req: Request, res: Response): Promise<void> => {
+export const getTelemetry = async (req: AuthRequest, res: Response): Promise<void> => {
   const { node_id, param_id, from, to, limit } = req.query;
   const filter: any = {};
   if (node_id) filter.node_id = node_id;
@@ -12,17 +13,28 @@ export const getTelemetry = async (req: Request, res: Response): Promise<void> =
     if (to) filter.timestamp.$lte = new Date(to as string);
   }
 
+  // Non-admin: only telemetry from owned nodes
+  if (req.user!.role !== 'admin') {
+    const ownedSites = await ProductionSite.find({ created_by: req.user!.id }).select('_id');
+    const ownedLines = await AssemblyLine.find({ site_id: { $in: ownedSites.map(s => s._id) } }).select('_id');
+    const ownedNodes = await TechNode.find({ line_id: { $in: ownedLines.map(l => l._id) } }).select('_id');
+    filter.node_id = filter.node_id
+      ? filter.node_id
+      : { $in: ownedNodes.map(n => n._id) };
+  }
+
   const records = await TelemetryRecord.find(filter)
     .sort({ timestamp: -1 })
     .limit(parseInt(limit as string) || 100);
   res.json(records);
 };
 
-export const getLatestTelemetry = async (req: Request, res: Response): Promise<void> => {
+export const getLatestTelemetry = async (req: AuthRequest, res: Response): Promise<void> => {
   const { node_id } = req.params;
   const node = await TechNode.findById(node_id);
   if (!node) { res.status(404).json({ error: 'Узел не найден' }); return; }
 
+  // Lazy loading: load telemetry records individually per parameter (on-demand)
   const latest = await Promise.all(
     node.parameters.map(async (param) => {
       const record = await TelemetryRecord.findOne({ node_id, param_id: param.param_id })
@@ -42,7 +54,7 @@ export const getLatestTelemetry = async (req: Request, res: Response): Promise<v
   res.json(latest);
 };
 
-export const createTelemetry = async (req: Request, res: Response): Promise<void> => {
+export const createTelemetry = async (req: AuthRequest, res: Response): Promise<void> => {
   const { node_id, param_id, value, quality_flag } = req.body;
   if (!node_id || !param_id || value === undefined) {
     res.status(400).json({ error: 'node_id, param_id и value обязательны' });

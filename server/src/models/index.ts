@@ -1,6 +1,7 @@
 export { Role, IRole } from './Role';
 export { User, IUser } from './User';
 export { Session, ISession } from './Session';
+export { RefreshToken, IRefreshToken } from './RefreshToken';
 export { ProductionSite, IProductionSite } from './ProductionSite';
 export { AssemblyLine, IAssemblyLine } from './AssemblyLine';
 export { TechNode, ITechNode, IParameter } from './TechNode';

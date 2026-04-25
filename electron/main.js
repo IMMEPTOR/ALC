@@ -5,17 +5,15 @@ const app = electron.app;
 const BrowserWindow = electron.BrowserWindow;
 const Menu = electron.Menu;
 
-const DEV_URL = 'http://localhost:8081';
-
 let mainWindow;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 800,
-    minWidth: 960,
-    minHeight: 640,
-    title: 'ALC — Контроль сборочных линий',
+    width: 1400,
+    height: 900,
+    minWidth: 1024,
+    minHeight: 700,
+    title: 'ALC Admin — Панель управления',
     titleBarStyle: 'hiddenInset',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -24,7 +22,8 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadURL(DEV_URL);
+  // Load local admin panel HTML
+  mainWindow.loadFile(path.join(__dirname, 'app', 'index.html'));
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -33,9 +32,9 @@ function createWindow() {
 
 const template = [
   {
-    label: 'ALC',
+    label: 'ALC Admin',
     submenu: [
-      { role: 'about', label: 'О приложении ALC' },
+      { role: 'about', label: 'О приложении ALC Admin' },
       { type: 'separator' },
       { role: 'quit', label: 'Выход' },
     ],

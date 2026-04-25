@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import { login, clearError } from '../store/slices/authSlice';
 import { RootState, AppDispatch } from '../store';
+
+const CLIENT_INFO = Platform.OS === 'web'
+  ? { label: 'Веб-клиент', role: 'Для инженеров' }
+  : { label: 'Мобильный клиент', role: 'Для операторов' };
 
 export const LoginScreen: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -21,6 +25,10 @@ export const LoginScreen: React.FC = () => {
       <View style={styles.card}>
         <Text style={styles.title}>ALC</Text>
         <Text style={styles.subtitle}>Assembly Line Control</Text>
+        <View style={styles.clientBadge}>
+          <Text style={styles.clientLabel}>{CLIENT_INFO.label}</Text>
+          <Text style={styles.clientRole}>{CLIENT_INFO.role}</Text>
+        </View>
 
         {error && (
           <View style={styles.errorBox}>
@@ -90,4 +98,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: '#ef4444',
   },
   errorText: { color: '#ef4444', fontSize: 14, textAlign: 'center' },
+  clientBadge: { alignItems: 'center', marginBottom: 24, backgroundColor: '#0f172a', borderRadius: 8, padding: 10 },
+  clientLabel: { fontSize: 13, fontWeight: '700', color: '#3b82f6' },
+  clientRole: { fontSize: 11, color: '#64748b', marginTop: 2 },
 });
