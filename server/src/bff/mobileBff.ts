@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { AuthRequest, authenticate } from '../middleware/auth';
 import { getReadDb, NODE_READ_MODEL_COLLECTION } from '../readmodels/nodeReadModel';
-import { Alert, Command } from '../models';
+import { Alert, Command, TechNode } from '../models';
 
 // BFF for mobile client (operator) — minimal DTO, aggregated for tablet/phone UI
 const router = Router();
@@ -74,6 +74,53 @@ router.get('/node/:id', async (req: AuthRequest, res: Response) => {
     alerts_count: node.active_alerts_count,
     recent_alerts: recentAlerts.map(a => ({ id: a._id, severity: a.severity, message: a.message, at: a.created_at })),
     recent_commands: recentCommands.map(c => ({ id: c._id, action: c.action_type, status: c.status, at: c.created_at })),
+  });
+});
+
+// Notifications feed: latest active alerts joined with node name and site
+// — single trimmed DTO для пуш-нотификаций на мобильном
+router.get('/alerts', async (req: AuthRequest, res: Response) => {
+  const db = getReadDb();
+  const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
+
+  // Restrict to nodes the user owns (or all for admin)
+  let allowedNodeIds: any = undefined;
+  if (req.user!.role !== 'admin') {
+    const ownNodes = await TechNode.find({ created_by: req.user!.id }).select('_id').lean();
+    allowedNodeIds = ownNodes.map(n => n._id);
+  }
+
+  const filter: any = { status: { $in: ['active', 'acknowledged'] } };
+  if (allowedNodeIds) filter.node_id = { $in: allowedNodeIds };
+
+  const alerts = await Alert.find(filter)
+    .sort({ created_at: -1 })
+    .limit(limit)
+    .lean();
+
+  // Enrich with node info from read model in a single batch query
+  const nodeIds = Array.from(new Set(alerts.map(a => a.node_id?.toString()).filter(Boolean)));
+  const nodes = await db.collection(NODE_READ_MODEL_COLLECTION)
+    .find({ node_id: { $in: nodeIds } })
+    .toArray();
+  const byId = new Map(nodes.map(n => [n.node_id, n]));
+
+  // Mobile DTO — flat, single object per alert, no nested populate
+  res.json({
+    count: alerts.length,
+    alerts: alerts.map(a => {
+      const n = byId.get(a.node_id?.toString() || '');
+      return {
+        id: a._id,
+        severity: a.severity,
+        message: a.message,
+        status: a.status,
+        at: a.created_at,
+        node_id: a.node_id,
+        node_name: n?.name || '',
+        site: n?.site_name || '',
+      };
+    }),
   });
 });
 
