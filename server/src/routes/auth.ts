@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { login, refresh, getMe, logout } from '../controllers/authController';
+import { login, refresh, getMe, logout, listSessions, revokeSession } from '../controllers/authController';
 import { authenticate } from '../middleware/auth';
 import { loginRateLimit } from '../middleware/rateLimit';
 import { validateBody } from '../middleware/validate';
@@ -21,5 +21,9 @@ router.post('/login', loginRateLimit, validateBody(loginSchema), login);
 router.post('/refresh', validateBody(refreshSchema), refresh);
 router.get('/me', authenticate, getMe);
 router.post('/logout', authenticate, logout);
+
+// 6.2 — view and revoke active refresh sessions
+router.get('/sessions', authenticate, listSessions);
+router.delete('/sessions/:id', authenticate, revokeSession);
 
 export default router;
