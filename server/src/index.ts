@@ -106,8 +106,8 @@ mongoose.connect(config.mongoUri)
     // Build the denormalized read model from the write model on startup
     rebuildReadModel().catch(err => logger.error('Read model rebuild failed', { error: err.message }));
 
-    httpServer.listen(config.port, () => {
-      logger.info(`ALC Server running on port ${config.port}`);
+    httpServer.listen(config.port, config.host, () => {
+      logger.info(`ALC Server running on ${config.host}:${config.port}`);
       // генерация симуляций каждые 4 сек
       startSimulator(4000);
     });
